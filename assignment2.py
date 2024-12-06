@@ -3,11 +3,11 @@
 '''
 OPS445 Assignment 2
 Program: assignment2.py 
-Author: "Student Name"
-Semester: "Enter Winter/Summer/Fall Year"
+Author: Ajit Virk
+Semester: Fall
 
 The python code in this file is original work written by
-"Student Name". No code in this file is copied from any other source 
+Ajit Virk. No code in this file is copied from any other source 
 except those provided by the course instructor, including any person, 
 textbook, or on-line resource. I have not shared this python script 
 with anyone or anything except for submission for grading.  
@@ -36,7 +36,13 @@ def parse_command_args() -> object:
 
 def percent_to_graph(percent: float, length: int=20) -> str:
     "turns a percent 0.0 - 1.0 into a bar graph"
-    ...
+    # Ensure percent is between 0 and 1
+    percent = max(0, min(1, percent))
+    # Calculate how many hash symbols 
+    num_hashes = int(percent * length)
+    # Construct the bar
+    return "#" * num_hashes + " " * (length - num_hashes)
+
 # percent to graph function
 
 def get_sys_mem() -> int:
