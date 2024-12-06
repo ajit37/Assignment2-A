@@ -22,16 +22,26 @@ import argparse
 import os, sys
 
 def parse_command_args() -> object:
-    "Set up argparse here. Call this function inside main."
-    parser = argparse.ArgumentParser(description="Memory Visualiser -- See Memory Usage Report with bar charts",epilog="Copyright 2023")
+# create argparse function
+    parser = argparse.ArgumentParser(description="Memory Visualiser -- See Memory Usage Report with bar charts", epilog="Copyright 2023")
+
+    # -H option for human-readable memory output (e.g., MiB, GiB, etc.)
+    parser.add_argument("-H", "--human-readable", action="store_true", help="Prints sizes in human-readable format")
+
+    # -l option for specifying the length of the bar graph
     parser.add_argument("-l", "--length", type=int, default=20, help="Specify the length of the graph. Default is 20.")
-    # add argument for "human-readable". USE -H, don't use -h! -h is reserved for --help which is created automatically.
-    # check the docs for an argparse option to store this as a boolean.
-    parser.add_argument("program", type=str, nargs='?', help="if a program is specified, show memory use of all associated processes. Show only total use is not.")
+
+    # -r option to list only running processes
+    parser.add_argument("-r", "--running", action="store_true", help="List only running processes (optional)")
+
+    # Positional argument for the program name (to specify a program for memory use tracking)
+    parser.add_argument("program", type=str, nargs='?', help="If a program is specified, show memory use of all associated processes. Show only total use if not.")
+
+    # Parse and return the arguments object
     args = parser.parse_args()
     return args
-# create argparse function
-# -H human readable
+    
+    # -H human readable
 # -r running only
 
 def percent_to_graph(percent: float, length: int=20) -> str:
@@ -74,23 +84,6 @@ def get_avail_mem() -> int:
         else:
             return mem_free + swap_free
 
-def parse_command_args() -> object:
-    "Set up argparse here. Call this function inside main."
-    parser = argparse.ArgumentParser(description="Memory Visualiser -- See Memory Usage Report with bar charts", epilog="Copyright 2023")
-    
-    # Optional argument for human-readable memory sizes
-    parser.add_argument("-H", "--human-readable", action="store_true", help="Prints sizes in human readable format")
-    
-    # Optional argument for specifying length of the bar graph
-    parser.add_argument("-l", "--length", type=int, default=20, help="Specify the length of the graph. Default is 20.")
-    
-    # Positional argument for the program name
-    parser.add_argument("program", type=str, nargs='?', help="if a program is specified, show memory use of all associated processes. Show only total use if not.")
-    
-    # Parse and return arguments
-    args = parser.parse_args()
-    return args
-
 def pids_of_prog(app_name: str) -> list:
     "given an app name, return all pids associated with app"
     try:
@@ -104,7 +97,21 @@ def pids_of_prog(app_name: str) -> list:
 
 def rss_mem_of_pid(proc_id: str) -> int:
     "given a process id, return the resident memory used, zero if not found"
-    ...
+    try:
+        rss = 0
+        # Open the smaps file for the given process ID
+        with open(f"/proc/{proc_id}/smaps", "r") as f:
+            for line in f:
+                if line.startswith("Rss"):
+                    # Sum up the RSS memory values
+                    rss += int(line.split()[1])
+        return rss
+    except FileNotFoundError:
+        print(f"Process {proc_id} not found.")
+        return 0
+    except Exception as e:
+        print(f"Error reading RSS memory for PID {proc_id}: {e}")
+        return 0
 
 def bytes_to_human_r(kibibytes: int, decimal_places: int=2) -> str:
     "turn 1,024 into 1 MiB, for example"
@@ -121,9 +128,32 @@ def bytes_to_human_r(kibibytes: int, decimal_places: int=2) -> str:
 if __name__ == "__main__":
     args = parse_command_args()
     if not args.program:
-        ...
+        # If no program is specified, show the overall system memory usage
+        total_mem = get_sys_mem()
+        avail_mem = get_avail_mem()
+        used_mem = total_mem - avail_mem
+        percent_used = used_mem / total_mem
+
+        # Display the memory usage in a user-friendly way
+        if args.human_readable:
+            print(f"Memory {bytes_to_human_r(used_mem)} [{percent_to_graph(percent_used, args.length)} | {percent_used * 100:.1f}%] {bytes_to_human_r(used_mem)}/{bytes_to_human_r(total_mem)}")
+        else:
+            print(f"Memory {percent_to_graph(percent_used, args.length)} | {percent_used * 100:.1f}% {used_mem}/{total_mem} kB")
+
     else:
-        ...
+        # If a program is specified, get its associated PIDs and show memory usage for each process
+        pids = pids_of_prog(args.program)
+        if not pids:
+            print(f"No running processes found for program: {args.program}")
+        else:
+            print(f"{'PID':<10}{'Memory (kB)':<15}{'Graph':<30}")
+            for pid in pids:
+                rss = rss_mem_of_pid(pid)
+                percent = rss / total_mem
+                if args.human_readable:
+                    print(f"{pid:<10}{bytes_to_human_r(rss, 2):<15}{percent_to_graph(percent, args.length)}")
+                else:
+                    print(f"{pid:<10}{rss:<15}{percent_to_graph(percent, args.length)}")
     # process args
     # if no parameter passed, 
     # open meminfo.
