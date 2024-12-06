@@ -74,9 +74,33 @@ def get_avail_mem() -> int:
         else:
             return mem_free + swap_free
 
+def parse_command_args() -> object:
+    "Set up argparse here. Call this function inside main."
+    parser = argparse.ArgumentParser(description="Memory Visualiser -- See Memory Usage Report with bar charts", epilog="Copyright 2023")
+    
+    # Optional argument for human-readable memory sizes
+    parser.add_argument("-H", "--human-readable", action="store_true", help="Prints sizes in human readable format")
+    
+    # Optional argument for specifying length of the bar graph
+    parser.add_argument("-l", "--length", type=int, default=20, help="Specify the length of the graph. Default is 20.")
+    
+    # Positional argument for the program name
+    parser.add_argument("program", type=str, nargs='?', help="if a program is specified, show memory use of all associated processes. Show only total use if not.")
+    
+    # Parse and return arguments
+    args = parser.parse_args()
+    return args
+
 def pids_of_prog(app_name: str) -> list:
     "given an app name, return all pids associated with app"
-    ...
+    try:
+        # Use the pidof command to get process IDs for the program name
+        pid_list = os.popen(f"pidof {app_name}").read().strip()
+        # Return a list of process IDs, split by spaces
+        return pid_list.split() if pid_list else []
+    except Exception as e:
+        print(f"Error getting PIDs for {app_name}: {e}")
+        return []
 
 def rss_mem_of_pid(proc_id: str) -> int:
     "given a process id, return the resident memory used, zero if not found"
